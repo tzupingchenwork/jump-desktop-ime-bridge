@@ -20,6 +20,34 @@ TEMPLATE="$SCRIPT_DIR/$LABEL.plist.template"
 PLIST_DEST="$HOME/Library/LaunchAgents/$LABEL.plist"
 LOG_PATH="$HOME/Library/Logs/jump-desktop-ime-bridge.log"
 
+resolve_python() {
+    local candidates=()
+    local candidate=""
+
+    candidates+=("$SCRIPT_DIR/.venv/bin/python")
+
+    for candidate_name in python3 python3.12 python3.11 python3.10 python3.9; do
+        candidate="$(command -v "$candidate_name" 2>/dev/null || true)"
+        if [[ -n "$candidate" ]]; then
+            candidates+=("$candidate")
+        fi
+    done
+
+    for candidate in "${candidates[@]}"; do
+        [[ -x "$candidate" ]] || continue
+        if "$candidate" - <<'PY' >/dev/null 2>&1
+import sys
+raise SystemExit(0 if sys.version_info >= (3, 9) else 1)
+PY
+        then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
 cmd_status() {
     echo "Label:    $LABEL"
     echo "Plist:    $PLIST_DEST"
@@ -53,9 +81,10 @@ cmd_uninstall() {
 }
 
 cmd_install() {
-    PYTHON3=$(command -v python3 || true)
+    PYTHON3="$(resolve_python || true)"
     if [[ -z "$PYTHON3" ]]; then
-        echo "Error: python3 not found in PATH" >&2
+        echo "Error: no Python 3.9+ interpreter found." >&2
+        echo "Hint: create a local .venv first, or install Python 3.9+ and re-run." >&2
         exit 1
     fi
 

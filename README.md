@@ -65,13 +65,18 @@ Caps Lock
 ```bash
 git clone https://github.com/tzupingchenwork/jump-desktop-ime-bridge.git ~/jump-desktop-ime-bridge
 cd ~/jump-desktop-ime-bridge
-pip3 install -r requirements.txt
+python3 --version
+python3 -m venv .venv
+./.venv/bin/python -m pip install -r requirements.txt
 ```
+
+如果你的 `python3` 低於 3.9, 改用任何可用的 3.9+ binary 建 venv 即可,例如 `python3.10 -m venv .venv`。
+若你平常用 uv 或 conda 也可以,但建議最後都落到專案內的 `.venv`,因為 `install.sh` 會優先使用 `.venv/bin/python`。
 
 ### 一次性測試
 
 ```bash
-python3 jump_desktop_ime_bridge.py
+./.venv/bin/python jump_desktop_ime_bridge.py
 ```
 
 第一次跑會被權限擋,看下一節。
@@ -102,7 +107,7 @@ tail -f ~/Library/Logs/jump-desktop-ime-bridge.log
 
 - 你跑 `python3 jump_desktop_ime_bridge.py` 的 Terminal/iTerm,**或者**
 - LaunchAgent 模式下,實際的 `python3` binary
-  (路徑會在 `install.sh` 輸出裡顯示,通常是 `/opt/homebrew/bin/python3` 或 `/usr/local/bin/python3`)
+  (路徑會在 `install.sh` 輸出裡顯示,若專案下有 `.venv`, 會優先使用 `.venv/bin/python`)
 
 第一次跑 macOS 通常會跳對話框,沒跳就手動拖檔進去。
 

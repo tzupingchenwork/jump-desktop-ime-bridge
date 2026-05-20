@@ -2,16 +2,20 @@
 """
 jump-desktop-ime-bridge
 =============
-解決 Jump Desktop (com.p5sys.jump.mac.viewer) 全螢幕模式下,
+解決遠端桌面軟體 (Jump Desktop / Apple 螢幕共享) 全螢幕模式下,
 本地 macOS 與遠端 Windows 的 IME 狀態脫鉤問題.
+
+支援的遠端桌面應用程式:
+    - Jump Desktop (com.p5sys.jump.mac.viewer)
+    - Apple 螢幕共享 (com.apple.ScreenSharing)
 
 機制:
     1. 使用者用 Karabiner 把 Caps Lock 改成 F19 (keycode 80).
     2. 本腳本透過 CGEventTap 攔截 F19 keydown.
-    3. 若當下前景是 Jump Desktop, 就:
+    3. 若當下前景是支援的遠端桌面應用程式, 就:
         a. 放行 F19 (回傳 original event), 讓遠端 Windows 收到並切換遠端 IME.
         b. 同時非同步呼叫 Carbon TIS, 強制切換本地 macOS IME (ABC <-> 注音).
-    4. 若前景不是 Jump Desktop, 完全不干涉, 原樣放行.
+    4. 若前景不是支援的應用程式, 完全不干涉, 原樣放行.
 
 關鍵技術:
     - Carbon TIS (TISSelectInputSource) 直接改 macOS 輸入源, 不走鍵盤事件鏈,
@@ -68,7 +72,10 @@ from Quartz import (
 )
 
 # ===== 設定 =====
-TARGET_BUNDLE_ID = "com.p5sys.jump.mac.viewer"
+TARGET_BUNDLE_IDS = {
+    "com.p5sys.jump.mac.viewer",   # Jump Desktop
+    "com.apple.ScreenSharing",     # Apple 螢幕共享
+}
 F19_KEYCODE = 80
 ABC_INPUT_SOURCE = "com.apple.keylayout.ABC"
 ZHUYIN_INPUT_SOURCE = "com.apple.inputmethod.TCIM.Zhuyin"
@@ -151,11 +158,11 @@ def toggle_local_ime_async():
 
 
 # ===== 前景 App 偵測 =====
-def is_jump_desktop_frontmost():
+def is_target_app_frontmost():
     front = NSWorkspace.sharedWorkspace().frontmostApplication()
     if front is None:
         return False
-    return front.bundleIdentifier() == TARGET_BUNDLE_ID
+    return front.bundleIdentifier() in TARGET_BUNDLE_IDS
 
 
 # ===== Event Tap =====
@@ -179,7 +186,7 @@ def event_tap_callback(proxy, event_type, event, refcon):
     if keycode != F19_KEYCODE:
         return event
 
-    if not is_jump_desktop_frontmost():
+    if not is_target_app_frontmost():
         return event
 
     toggle_local_ime_async()
@@ -191,7 +198,7 @@ def main():
     global _tap_ref
 
     log.info("jump-desktop-ime-bridge 啟動")
-    log.info("Target Bundle: %s", TARGET_BUNDLE_ID)
+    log.info("Target Bundles: %s", ", ".join(sorted(TARGET_BUNDLE_IDS)))
     log.info("監聽 keycode: F19 (%d)", F19_KEYCODE)
 
     if find_input_source(ABC_INPUT_SOURCE) is None:
@@ -234,7 +241,7 @@ def main():
     CGEventTapEnable(tap, True)
 
     log.info(
-        "EventTap 已啟用. 在 Jump Desktop 中按 F19 (Caps Lock) 測試. Ctrl-C 結束."
+        "EventTap 已啟用. 在 Jump Desktop 或 Apple 螢幕共享中按 F19 (Caps Lock) 測試. Ctrl-C 結束."
     )
 
     running = {"v": True}
